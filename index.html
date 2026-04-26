@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study Flip</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">Simple flash cards</p>
+        <h1>Study Flip</h1>
+        <p class="hero-copy">
+          Tap the card to flip it, move through your deck, and add new cards as
+          you study.
+        </p>
+      </header>
+
+      <main class="layout">
+        <section class="study-panel">
+          <div class="deck-status">
+            <span id="card-count">0 cards</span>
+            <span id="card-position">Card 0 of 0</span>
+          </div>
+
+          <button
+            id="flashcard"
+            class="flashcard"
+            type="button"
+            aria-label="Flip flash card"
+          >
+            <div class="card-face card-front">
+              <p class="face-label">Front</p>
+              <p id="card-front-text" class="card-text"></p>
+            </div>
+            <div class="card-face card-back">
+              <p class="face-label">Back</p>
+              <p id="card-back-text" class="card-text"></p>
+            </div>
+          </button>
+
+          <div class="controls">
+            <button id="prev-card" class="secondary-button" type="button">
+              Previous
+            </button>
+            <button id="flip-card" class="primary-button" type="button">
+              Flip Card
+            </button>
+            <button id="next-card" class="secondary-button" type="button">
+              Next
+            </button>
+          </div>
+
+          <div class="actions">
+            <button id="delete-card" class="ghost-button" type="button">
+              Delete Current Card
+            </button>
+            <button id="reset-sample" class="ghost-button" type="button">
+              Restore Sample Deck
+            </button>
+          </div>
+        </section>
+
+        <aside class="editor-panel">
+          <h2>Add a card</h2>
+          <p class="panel-copy">
+            Keep it quick: prompt on the front, answer on the back.
+          </p>
+
+          <form id="card-form" class="card-form">
+            <label for="question">Front</label>
+            <textarea
+              id="question"
+              name="question"
+              rows="4"
+              placeholder="What do you want to remember?"
+              required
+            ></textarea>
+
+            <label for="answer">Back</label>
+            <textarea
+              id="answer"
+              name="answer"
+              rows="4"
+              placeholder="Write the answer or explanation."
+              required
+            ></textarea>
+
+            <button class="primary-button" type="submit">Save Card</button>
+          </form>
+
+          <p class="storage-note">
+            Your cards are saved in this browser with local storage.
+          </p>
+        </aside>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
