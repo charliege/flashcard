@@ -22,6 +22,9 @@
           <div class="deck-status">
             <span id="card-count">0 cards</span>
             <span id="card-position">Card 0 of 0</span>
+            <span id="sync-badge" class="sync-badge" data-mode="local"
+              >Local only</span
+            >
           </div>
 
           <button
@@ -56,13 +59,70 @@
             <button id="delete-card" class="ghost-button" type="button">
               Delete Current Card
             </button>
-            <button id="reset-sample" class="ghost-button" type="button">
-              Restore Sample Deck
+            <button id="add-sample" class="ghost-button" type="button">
+              Add Sample Cards
+            </button>
+            <button id="refresh-deck" class="ghost-button" type="button">
+              Refresh Deck
             </button>
           </div>
         </section>
 
         <aside class="editor-panel">
+          <section class="sync-panel">
+            <div class="panel-header">
+              <h2>Cloud Sync</h2>
+              <button id="sign-out" class="ghost-button small-button" type="button">
+                Sign Out
+              </button>
+            </div>
+            <p id="sync-message" class="panel-copy">
+              Using this device only for now.
+            </p>
+
+            <form id="sync-form" class="card-form compact-form">
+              <label for="sync-email">Sign in with email</label>
+              <input
+                id="sync-email"
+                name="sync-email"
+                type="email"
+                placeholder="you@example.com"
+                autocomplete="email"
+              />
+              <button class="primary-button" type="submit">Send Magic Link</button>
+            </form>
+
+            <details class="setup-details">
+              <summary>Connect Supabase</summary>
+              <form id="config-form" class="card-form compact-form">
+                <label for="config-url">Project URL</label>
+                <input
+                  id="config-url"
+                  name="config-url"
+                  type="url"
+                  placeholder="https://your-project.supabase.co"
+                />
+
+                <label for="config-key">Publishable or anon key</label>
+                <textarea
+                  id="config-key"
+                  name="config-key"
+                  rows="3"
+                  placeholder="sb_publishable_... or your anon key"
+                ></textarea>
+
+                <button class="secondary-button" type="submit">
+                  Save Cloud Settings On This Device
+                </button>
+              </form>
+
+              <p class="storage-note">
+                For every device automatically, add the same values to
+                <code>config.js</code> and push once to GitHub Pages.
+              </p>
+            </details>
+          </section>
+
           <h2>Add a card</h2>
           <p class="panel-copy">
             Keep it quick: prompt on the front, answer on the back.
@@ -91,12 +151,13 @@
           </form>
 
           <p class="storage-note">
-            Your cards are saved in this browser with local storage.
+            Without cloud sync, cards stay on this browser only.
           </p>
         </aside>
       </main>
     </div>
 
-    <script src="./script.js"></script>
+    <script src="./config.js"></script>
+    <script type="module" src="./script.js"></script>
   </body>
 </html>

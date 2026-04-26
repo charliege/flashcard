@@ -103,7 +103,8 @@ body::after {
 
 .deck-status,
 .actions,
-.controls {
+.controls,
+.panel-header {
   display: flex;
   gap: 0.75rem;
   align-items: center;
@@ -115,6 +116,35 @@ body::after {
   margin-bottom: 1rem;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+}
+
+.sync-badge[data-mode="synced"] {
+  background: rgba(62, 128, 79, 0.14);
+  color: #295d35;
+}
+
+.sync-badge[data-mode="ready"] {
+  background: rgba(33, 88, 148, 0.12);
+  color: #184b83;
+}
+
+.sync-badge[data-mode="error"] {
+  background: rgba(180, 79, 45, 0.15);
+  color: var(--accent-deep);
 }
 
 .flashcard {
@@ -198,6 +228,7 @@ body::after {
 }
 
 button,
+input,
 textarea {
   font: inherit;
 }
@@ -249,6 +280,20 @@ textarea {
   font-size: 2rem;
 }
 
+.sync-panel {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.sync-panel h2 {
+  font-size: 1.5rem;
+}
+
+.small-button {
+  padding: 0.65rem 0.9rem;
+}
+
 .panel-copy,
 .storage-note {
   color: var(--muted);
@@ -275,9 +320,34 @@ textarea {
   color: var(--ink);
 }
 
+.card-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+}
+
+.card-form input:focus,
 .card-form textarea:focus {
   outline: 2px solid rgba(180, 79, 45, 0.22);
   border-color: rgba(180, 79, 45, 0.5);
+}
+
+.compact-form {
+  margin-top: 1rem;
+}
+
+.setup-details {
+  margin-top: 1rem;
+  padding-top: 0.25rem;
+}
+
+.setup-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent-deep);
 }
 
 @media (max-width: 880px) {
