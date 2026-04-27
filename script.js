@@ -25,10 +25,23 @@ const sampleCards = [
 ];
 
 const flashcard = document.querySelector("#flashcard");
+const cardFrontFace = flashcard.querySelector(".card-front");
+const cardBackFace = flashcard.querySelector(".card-back");
 const frontText = document.querySelector("#card-front-text");
 const backText = document.querySelector("#card-back-text");
+const cardFrontMediaFrame = document.querySelector("#card-front-media-frame");
+const cardBackMediaFrame = document.querySelector("#card-back-media-frame");
+const cardFrontMedia = document.querySelector("#card-front-media");
+const cardBackMedia = document.querySelector("#card-back-media");
+const zoomFlashcard = document.querySelector("#zoom-flashcard");
 const zoomFrontText = document.querySelector("#zoom-front-text");
 const zoomBackText = document.querySelector("#zoom-back-text");
+const zoomFrontFace = zoomFlashcard?.querySelector?.(".card-front") ?? null;
+const zoomBackFace = zoomFlashcard?.querySelector?.(".card-back") ?? null;
+const zoomFrontMediaFrame = document.querySelector("#zoom-front-media-frame");
+const zoomBackMediaFrame = document.querySelector("#zoom-back-media-frame");
+const zoomFrontMedia = document.querySelector("#zoom-front-media");
+const zoomBackMedia = document.querySelector("#zoom-back-media");
 const cardCount = document.querySelector("#card-count");
 const cardPosition = document.querySelector("#card-position");
 const topicSelect = document.querySelector("#topic-select");
@@ -37,7 +50,6 @@ const topicForm = document.querySelector("#topic-form");
 const topicNameInput = document.querySelector("#topic-name");
 const openZoomButton = document.querySelector("#open-zoom");
 const closeZoomButton = document.querySelector("#close-zoom");
-const zoomFlashcard = document.querySelector("#zoom-flashcard");
 const zoomFlipButton = document.querySelector("#zoom-flip");
 const zoomBackdrop = document.querySelector("#zoom-backdrop");
 const zoomModal = document.querySelector("#zoom-modal");
@@ -55,6 +67,10 @@ const cardForm = document.querySelector("#card-form");
 const editorTitle = document.querySelector("#editor-title");
 const questionInput = document.querySelector("#question");
 const answerInput = document.querySelector("#answer");
+const imageInput = document.querySelector("#card-image");
+const imagePreviewShell = document.querySelector("#image-preview-shell");
+const imagePreview = document.querySelector("#image-preview");
+const removeImageButton = document.querySelector("#remove-image");
 const saveCardButton = document.querySelector("#save-card");
 const cancelEditButton = document.querySelector("#cancel-edit");
 const syncForm = document.querySelector("#sync-form");
@@ -73,9 +89,13 @@ let session = null;
 let isSaving = false;
 let isConfiguredForCloud = false;
 let editingCardId = null;
+let draftImageData = "";
+let isProcessingImage = false;
+let cloudSupportsImages = true;
 
 ensureTopicState();
 wireEventListeners();
+renderDraftImage();
 initializeApp();
 
 function wireEventListeners() {
@@ -178,23 +198,59 @@ function wireEventListeners() {
     startEditingCard(currentCard);
   });
 
+  imageInput.addEventListener("change", async () => {
+    const file = imageInput.files?.[0];
+
+    if (!file || isSaving || isProcessingImage) {
+      return;
+    }
+
+    isProcessingImage = true;
+    removeImageButton.disabled = true;
+
+    try {
+      draftImageData = await compressImageFile(file);
+      renderDraftImage();
+    } catch (error) {
+      setSyncState(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Could not process that image. Try a different file.",
+      );
+    } finally {
+      isProcessingImage = false;
+      removeImageButton.disabled = false;
+      imageInput.value = "";
+    }
+  });
+
+  removeImageButton.addEventListener("click", () => {
+    draftImageData = "";
+    renderDraftImage();
+    imageInput.value = "";
+  });
+
   cardForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const question = questionInput.value.trim();
     const answer = answerInput.value.trim();
 
-    if (!question || !answer || isSaving) return;
+    if (!question || !answer || isSaving || isProcessingImage) return;
 
     if (editingCardId) {
       if (isCloudActive()) {
-        await updateCloudCard(editingCardId, question, answer);
+        await updateCloudCard(editingCardId, question, answer, draftImageData);
         return;
       }
 
       allCards = allCards.map((card) =>
         card.id === editingCardId
-          ? createCard(question, answer, activeTopic, card)
+          ? createCard(question, answer, activeTopic, {
+              ...card,
+              image_data: draftImageData,
+            })
           : card,
       );
       persistLocalCards(allCards);
@@ -208,19 +264,22 @@ function wireEventListeners() {
     }
 
     if (isCloudActive()) {
-      await addCloudCard(question, answer);
+      await addCloudCard(question, answer, draftImageData);
       return;
     }
 
-    allCards.push(createCard(question, answer, activeTopic));
+    allCards.push(
+      createCard(question, answer, activeTopic, {
+        image_data: draftImageData,
+      }),
+    );
     persistLocalCards(allCards);
     topicNames = normalizeTopicList(topicNames, allCards);
     persistLocalTopics(topicNames);
     currentIndex = getVisibleCards().length - 1;
     renderTopics();
     renderCard();
-    cardForm.reset();
-    questionInput.focus();
+    resetCardComposer({ focusQuestion: true });
   });
 
   cancelEditButton.addEventListener("click", () => {
@@ -423,10 +482,7 @@ async function loadCloudData(options = {}) {
   let finalMessage = statusMessage ?? `Signed in as ${session.user.email}.`;
 
   const [cardsResult, topicsResult] = await Promise.all([
-    supabase
-      .from("flashcards")
-      .select("id, question, answer, topic, created_at")
-      .order("created_at", { ascending: true }),
+    fetchCloudCards(),
     supabase.from("topics").select("name").order("created_at", { ascending: true }),
   ]);
 
@@ -475,22 +531,56 @@ async function loadCloudData(options = {}) {
   }
 }
 
+async function fetchCloudCards() {
+  const preferredResult = await supabase
+    .from("flashcards")
+    .select("id, question, answer, topic, image_data, created_at")
+    .order("created_at", { ascending: true });
+
+  if (!preferredResult.error) {
+    cloudSupportsImages = true;
+    return preferredResult;
+  }
+
+  if (!isMissingImageColumnError(preferredResult.error)) {
+    return preferredResult;
+  }
+
+  cloudSupportsImages = false;
+
+  return supabase
+    .from("flashcards")
+    .select("id, question, answer, topic, created_at")
+    .order("created_at", { ascending: true });
+}
+
 async function importLocalStateToCloud() {
   if (!supabase || !session) return null;
 
   const localCards = loadLocalCards();
   const localTopics = loadLocalTopics(localCards);
+  const canUseImages = cloudSupportsImages;
+  const hasLocalImages = localCards.some((card) => card.image_data);
 
   const topicPayload = localTopics.map((name) => ({
     user_id: session.user.id,
     name,
   }));
 
+  if (!canUseImages && hasLocalImages) {
+    setSyncState(
+      "error",
+      "Run supabase-images-migration.sql in Supabase SQL Editor before importing image cards to the cloud.",
+    );
+    return null;
+  }
+
   const cardsPayload = localCards.map((card) => ({
     user_id: session.user.id,
     question: card.question,
     answer: card.answer,
     topic: card.topic,
+    ...(canUseImages ? { image_data: card.image_data || null } : {}),
   }));
 
   if (topicPayload.length) {
@@ -505,10 +595,13 @@ async function importLocalStateToCloud() {
   let importedCards = [];
 
   if (cardsPayload.length) {
+    const selectColumns = canUseImages
+      ? "id, question, answer, topic, image_data, created_at"
+      : "id, question, answer, topic, created_at";
     const { data, error } = await supabase
       .from("flashcards")
       .insert(cardsPayload)
-      .select("id, question, answer, topic, created_at");
+      .select(selectColumns);
 
     if (error) {
       setSyncState("error", formatCloudError(error));
@@ -524,12 +617,23 @@ async function importLocalStateToCloud() {
   };
 }
 
-async function addCloudCard(question, answer) {
+async function addCloudCard(question, answer, imageData = "") {
   if (!supabase || !session) return;
+
+  if (imageData && !cloudSupportsImages) {
+    setSyncState(
+      "error",
+      "Run supabase-images-migration.sql in Supabase SQL Editor, then refresh this page before saving picture cards to the cloud.",
+    );
+    return;
+  }
 
   isSaving = true;
   setSyncState("synced", "Saving card to the cloud...");
 
+  const selectColumns = cloudSupportsImages
+    ? "id, question, answer, topic, image_data, created_at"
+    : "id, question, answer, topic, created_at";
   const { data, error } = await supabase
     .from("flashcards")
     .insert({
@@ -537,8 +641,9 @@ async function addCloudCard(question, answer) {
       question,
       answer,
       topic: activeTopic,
+      ...(cloudSupportsImages ? { image_data: imageData || null } : {}),
     })
-    .select("id, question, answer, topic, created_at")
+    .select(selectColumns)
     .single();
 
   isSaving = false;
@@ -555,26 +660,37 @@ async function addCloudCard(question, answer) {
   currentIndex = getVisibleCards().length - 1;
   renderTopics();
   renderCard();
-  cardForm.reset();
-  questionInput.focus();
+  resetCardComposer({ focusQuestion: true });
   setSyncState("synced", "Card saved and synced.");
 }
 
-async function updateCloudCard(cardId, question, answer) {
+async function updateCloudCard(cardId, question, answer, imageData = "") {
   if (!supabase || !session) return;
+
+  if (imageData && !cloudSupportsImages) {
+    setSyncState(
+      "error",
+      "Run supabase-images-migration.sql in Supabase SQL Editor, then refresh this page before updating picture cards in the cloud.",
+    );
+    return;
+  }
 
   isSaving = true;
   setSyncState("synced", "Updating card in the cloud...");
 
+  const selectColumns = cloudSupportsImages
+    ? "id, question, answer, topic, image_data, created_at"
+    : "id, question, answer, topic, created_at";
   const { data, error } = await supabase
     .from("flashcards")
     .update({
       question,
       answer,
       topic: activeTopic,
+      ...(cloudSupportsImages ? { image_data: imageData || null } : {}),
     })
     .eq("id", cardId)
-    .select("id, question, answer, topic, created_at")
+    .select(selectColumns)
     .single();
 
   isSaving = false;
@@ -682,6 +798,7 @@ function renderCard() {
     setCardText(
       `No cards in ${activeTopic}`,
       "Add a card below to start this topic.",
+      "",
     );
     cardCount.textContent = "0 cards";
     cardPosition.textContent = "Card 0 of 0";
@@ -691,7 +808,7 @@ function renderCard() {
   }
 
   const currentCard = visibleCards[currentIndex];
-  setCardText(currentCard.question, currentCard.answer);
+  setCardText(currentCard.question, currentCard.answer, currentCard.image_data);
   cardCount.textContent = `${visibleCards.length} card${visibleCards.length === 1 ? "" : "s"}`;
   cardPosition.textContent = `Card ${currentIndex + 1} of ${visibleCards.length}`;
   setDisabledState(false);
@@ -719,7 +836,7 @@ function setDisabledState(isDisabled) {
   zoomFlipButton.disabled = isDisabled;
 }
 
-function setCardText(front, back) {
+function setCardText(front, back, imageData = "") {
   frontText.textContent = front;
   backText.textContent = back;
   zoomFrontText.textContent = front;
@@ -728,6 +845,7 @@ function setCardText(front, back) {
   applyAdaptiveTextSize(backText, back);
   applyAdaptiveTextSize(zoomFrontText, front);
   applyAdaptiveTextSize(zoomBackText, back);
+  renderCardMedia(imageData);
 }
 
 function setSyncState(mode, message) {
@@ -861,11 +979,13 @@ function ensureTopicState() {
 
 function startEditingCard(card) {
   editingCardId = card.id;
+  draftImageData = card.image_data ?? "";
   editorTitle.textContent = "Edit current card";
   saveCardButton.textContent = "Update Card";
   cancelEditButton.hidden = false;
   questionInput.value = card.question;
   answerInput.value = card.answer;
+  renderDraftImage();
   questionInput.focus();
   questionInput.setSelectionRange(questionInput.value.length, questionInput.value.length);
 }
@@ -880,7 +1000,7 @@ function exitEditMode(options = {}) {
   cancelEditButton.hidden = true;
 
   if (resetForm && wasEditing) {
-    cardForm.reset();
+    resetCardComposer();
   }
 
   if (focusQuestion) {
@@ -924,6 +1044,105 @@ function getAdaptiveTextSize(text) {
   }
 
   return "default";
+}
+
+function resetCardComposer(options = {}) {
+  const { focusQuestion = false } = options;
+
+  cardForm.reset();
+  draftImageData = "";
+  imageInput.value = "";
+  renderDraftImage();
+
+  if (focusQuestion) {
+    questionInput.focus();
+  }
+}
+
+function renderDraftImage() {
+  const hasImage = Boolean(draftImageData);
+
+  imagePreviewShell.hidden = !hasImage;
+  removeImageButton.hidden = !hasImage;
+
+  if (!hasImage) {
+    imagePreview.removeAttribute("src");
+    return;
+  }
+
+  imagePreview.src = draftImageData;
+}
+
+function renderCardMedia(imageData) {
+  const normalizedImageData = sanitizeImageData(imageData);
+  const hasImage = Boolean(normalizedImageData);
+  const mediaTargets = [
+    [cardFrontFace, cardFrontMediaFrame, cardFrontMedia],
+    [cardBackFace, cardBackMediaFrame, cardBackMedia],
+    [zoomFrontFace, zoomFrontMediaFrame, zoomFrontMedia],
+    [zoomBackFace, zoomBackMediaFrame, zoomBackMedia],
+  ];
+
+  for (const [face, frame, image] of mediaTargets) {
+    if (!face || !frame || !image) {
+      continue;
+    }
+
+    face.classList.toggle("has-media", hasImage);
+    frame.hidden = !hasImage;
+
+    if (hasImage) {
+      image.src = normalizedImageData;
+    } else {
+      image.removeAttribute("src");
+    }
+  }
+}
+
+async function compressImageFile(file) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please choose an image file.");
+  }
+
+  const imageUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(imageUrl);
+  const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+  const maxDimension = 960;
+  const scale = longestEdge > maxDimension ? maxDimension / longestEdge : 1;
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Your browser could not prepare that image.");
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/webp", 0.82);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read that image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not open that image."));
+    image.src = source;
+  });
 }
 
 function loadLocalCards() {
@@ -977,6 +1196,7 @@ function createCard(question, answer, topic = DEFAULT_TOPIC, partial = {}) {
     question: question.trim(),
     answer: answer.trim(),
     topic: normalizeTopicName(partial.topic ?? topic),
+    image_data: sanitizeImageData(partial.image_data ?? partial.imageData),
     created_at: partial.created_at ?? new Date().toISOString(),
   };
 }
@@ -1019,6 +1239,11 @@ function normalizeTopicList(topics, cards = []) {
 function normalizeTopicName(topic) {
   const value = String(topic ?? "").trim();
   return value || DEFAULT_TOPIC;
+}
+
+function sanitizeImageData(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || "";
 }
 
 function restoreCurrentIndex(preferredCardId) {
@@ -1087,6 +1312,11 @@ function isDuplicateTopicError(error) {
   );
 }
 
+function isMissingImageColumnError(error) {
+  const message = (error?.message ?? "").toLowerCase();
+  return message.includes("image_data") && message.includes("column");
+}
+
 function formatCloudError(error) {
   const message = error?.message ?? "Unknown cloud error.";
 
@@ -1095,6 +1325,10 @@ function formatCloudError(error) {
     message.includes("relation") && message.includes("topics")
   ) {
     return "Run supabase-topics-migration.sql in Supabase SQL Editor, then refresh this page.";
+  }
+
+  if (message.includes("column") && message.includes("image_data")) {
+    return "Run supabase-images-migration.sql in Supabase SQL Editor, then refresh this page.";
   }
 
   return message;

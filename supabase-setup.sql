@@ -6,6 +6,7 @@ create table if not exists public.flashcards (
   topic text not null default 'General' check (char_length(trim(topic)) > 0),
   question text not null check (char_length(trim(question)) > 0),
   answer text not null check (char_length(trim(answer)) > 0),
+  image_data text,
   created_at timestamptz not null default timezone('utc', now())
 );
 

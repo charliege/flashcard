@@ -29,6 +29,10 @@ If you already set up Supabase before topics were added, run
 [supabase-topics-migration.sql](/Users/charliege/Documents/New project/flashcard-site/supabase-topics-migration.sql)
 once in the Supabase SQL editor, then refresh the site.
 
+If you want card image uploads on an existing synced project, also run
+[supabase-images-migration.sql](/Users/charliege/Documents/New project/flashcard-site/supabase-images-migration.sql)
+once and refresh again.
+
 ## Notes
 
 - The app stays static, so it still works on GitHub Pages.
