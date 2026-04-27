@@ -117,32 +117,36 @@ function wireEventListeners() {
     renderCard();
   });
 
-  sampleButton.addEventListener("click", async () => {
-    if (isSaving) return;
+  if (sampleButton) {
+    sampleButton.addEventListener("click", async () => {
+      if (isSaving) return;
 
-    if (isCloudActive()) {
-      await addSampleCardsToCloud();
-      return;
-    }
+      if (isCloudActive()) {
+        await addSampleCardsToCloud();
+        return;
+      }
 
-    cards = mergeCards(cards, buildSampleCards());
-    persistLocalCards(cards);
-    currentIndex = Math.max(0, cards.length - 1);
-    renderCard();
-    setSyncState("local", "Sample cards added to this device.");
-  });
-
-  refreshButton.addEventListener("click", async () => {
-    if (!isCloudActive()) {
+      cards = mergeCards(cards, buildSampleCards());
+      persistLocalCards(cards);
+      currentIndex = Math.max(0, cards.length - 1);
       renderCard();
-      return;
-    }
-
-    await loadCloudCards({
-      preserveCurrentCardId: getCurrentCardId(),
-      statusMessage: "Deck refreshed from the cloud.",
+      setSyncState("local", "Sample cards added to this device.");
     });
-  });
+  }
+
+  if (refreshButton) {
+    refreshButton.addEventListener("click", async () => {
+      if (!isCloudActive()) {
+        renderCard();
+        return;
+      }
+
+      await loadCloudCards({
+        preserveCurrentCardId: getCurrentCardId(),
+        statusMessage: "Deck refreshed from the cloud.",
+      });
+    });
+  }
 
   cardForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -599,7 +603,9 @@ function setSyncState(mode, message) {
   }
 
   signOutButton.disabled = !isCloudActive();
-  refreshButton.disabled = !isCloudActive();
+  if (refreshButton) {
+    refreshButton.disabled = !isCloudActive();
+  }
 }
 
 function openSyncPanel() {
