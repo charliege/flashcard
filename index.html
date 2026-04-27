@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Flip</title>
-    <link rel="stylesheet" href="./style.css?v=4" />
+    <link rel="stylesheet" href="./style.css?v=5" />
   </head>
   <body>
     <div class="page-shell">
@@ -27,6 +27,13 @@
 
       <main class="layout">
         <section class="study-panel">
+          <div class="topic-toolbar">
+            <div class="topic-picker">
+              <label class="topic-label" for="topic-select">Topic</label>
+              <select id="topic-select" class="topic-select"></select>
+            </div>
+          </div>
+
           <div class="deck-status">
             <span id="card-count">0 cards</span>
             <span id="card-position">Card 0 of 0</span>
@@ -79,6 +86,22 @@
         </section>
 
         <aside class="editor-panel">
+          <section class="topic-manager">
+            <p class="topic-note">
+              Saving to <span id="active-topic-name">General</span>
+            </p>
+
+            <form id="topic-form" class="topic-form">
+              <input
+                id="topic-name"
+                name="topic-name"
+                type="text"
+                placeholder="Create a new topic"
+              />
+              <button class="secondary-button" type="submit">New Topic</button>
+            </form>
+          </section>
+
           <h2>Add a card</h2>
 
           <form id="card-form" class="card-form">
@@ -215,6 +238,6 @@
     </section>
 
     <script src="./config.js?v=2"></script>
-    <script type="module" src="./script.js?v=4"></script>
+    <script type="module" src="./script.js?v=5"></script>
   </body>
 </html>

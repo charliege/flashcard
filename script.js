@@ -1,20 +1,26 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const STORAGE_KEY = "study-flip-cards";
+const TOPICS_STORAGE_KEY = "study-flip-topics";
+const ACTIVE_TOPIC_STORAGE_KEY = "study-flip-active-topic";
 const CONFIG_STORAGE_KEY = "study-flip-sync-config";
+const DEFAULT_TOPIC = "General";
 
 const sampleCards = [
   {
     question: "What is active recall?",
     answer: "Testing yourself from memory instead of only rereading notes.",
+    topic: DEFAULT_TOPIC,
   },
   {
     question: "Why do flash cards help?",
     answer: "They make recall fast, repeatable, and easy to review in short sessions.",
+    topic: DEFAULT_TOPIC,
   },
   {
     question: "How do I use this site?",
-    answer: "Flip the card, move through the deck, and add your own cards on the right.",
+    answer: "Flip the card, move through your deck, and add new cards on the right.",
+    topic: DEFAULT_TOPIC,
   },
 ];
 
@@ -25,6 +31,10 @@ const zoomFrontText = document.querySelector("#zoom-front-text");
 const zoomBackText = document.querySelector("#zoom-back-text");
 const cardCount = document.querySelector("#card-count");
 const cardPosition = document.querySelector("#card-position");
+const topicSelect = document.querySelector("#topic-select");
+const activeTopicName = document.querySelector("#active-topic-name");
+const topicForm = document.querySelector("#topic-form");
+const topicNameInput = document.querySelector("#topic-name");
 const openZoomButton = document.querySelector("#open-zoom");
 const closeZoomButton = document.querySelector("#close-zoom");
 const zoomFlashcard = document.querySelector("#zoom-flashcard");
@@ -41,8 +51,6 @@ const prevButton = document.querySelector("#prev-card");
 const nextButton = document.querySelector("#next-card");
 const flipButton = document.querySelector("#flip-card");
 const deleteButton = document.querySelector("#delete-card");
-const sampleButton = document.querySelector("#add-sample");
-const refreshButton = document.querySelector("#refresh-deck");
 const cardForm = document.querySelector("#card-form");
 const questionInput = document.querySelector("#question");
 const answerInput = document.querySelector("#answer");
@@ -53,14 +61,16 @@ const configForm = document.querySelector("#config-form");
 const configUrlInput = document.querySelector("#config-url");
 const configKeyInput = document.querySelector("#config-key");
 
-let cards = loadLocalCards();
+let allCards = loadLocalCards();
+let topicNames = loadLocalTopics(allCards);
+let activeTopic = loadActiveTopic();
 let currentIndex = 0;
 let supabase = null;
 let session = null;
 let isSaving = false;
 let isConfiguredForCloud = false;
-let activeSyncMode = "local";
 
+ensureTopicState();
 wireEventListeners();
 initializeApp();
 
@@ -72,6 +82,31 @@ function wireEventListeners() {
   zoomFlashcard.addEventListener("click", flipZoomCard);
   zoomFlipButton.addEventListener("click", flipZoomCard);
   zoomBackdrop.addEventListener("click", closeZoomModal);
+
+  topicSelect.addEventListener("change", () => {
+    setActiveTopic(topicSelect.value);
+  });
+
+  topicForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const rawTopicName = topicNameInput.value.trim();
+
+    if (!rawTopicName || isSaving) return;
+
+    const topicName = normalizeTopicName(rawTopicName);
+
+    if (isCloudActive()) {
+      await addCloudTopic(topicName);
+      return;
+    }
+
+    topicNames = normalizeTopicList([...topicNames, topicName], allCards);
+    persistLocalTopics(topicNames);
+    setActiveTopic(topicName);
+    topicForm.reset();
+    topicNameInput.focus();
+  });
 
   if (openSyncPanelButton) {
     openSyncPanelButton.addEventListener("click", openSyncPanel);
@@ -86,67 +121,42 @@ function wireEventListeners() {
   }
 
   prevButton.addEventListener("click", () => {
-    if (!cards.length) return;
-    currentIndex = (currentIndex - 1 + cards.length) % cards.length;
+    const visibleCards = getVisibleCards();
+    if (!visibleCards.length) return;
+    currentIndex = (currentIndex - 1 + visibleCards.length) % visibleCards.length;
     renderCard();
   });
 
   nextButton.addEventListener("click", () => {
-    if (!cards.length) return;
-    currentIndex = (currentIndex + 1) % cards.length;
+    const visibleCards = getVisibleCards();
+    if (!visibleCards.length) return;
+    currentIndex = (currentIndex + 1) % visibleCards.length;
     renderCard();
   });
 
   deleteButton.addEventListener("click", async () => {
-    if (!cards.length || isSaving) return;
+    const visibleCards = getVisibleCards();
+    if (!visibleCards.length || isSaving) return;
 
-    const cardToDelete = cards[currentIndex];
+    const cardToDelete = visibleCards[currentIndex];
 
     if (isCloudActive()) {
       await deleteCloudCard(cardToDelete.id);
       return;
     }
 
-    cards.splice(currentIndex, 1);
+    allCards = allCards.filter((card) => card.id !== cardToDelete.id);
+    persistLocalCards(allCards);
+    topicNames = normalizeTopicList(topicNames, allCards);
+    persistLocalTopics(topicNames);
 
-    if (currentIndex >= cards.length) {
-      currentIndex = Math.max(0, cards.length - 1);
+    if (currentIndex >= getVisibleCards().length) {
+      currentIndex = Math.max(0, getVisibleCards().length - 1);
     }
 
-    persistLocalCards(cards);
+    ensureTopicState();
     renderCard();
   });
-
-  if (sampleButton) {
-    sampleButton.addEventListener("click", async () => {
-      if (isSaving) return;
-
-      if (isCloudActive()) {
-        await addSampleCardsToCloud();
-        return;
-      }
-
-      cards = mergeCards(cards, buildSampleCards());
-      persistLocalCards(cards);
-      currentIndex = Math.max(0, cards.length - 1);
-      renderCard();
-      setSyncState("local", "Sample cards added to this device.");
-    });
-  }
-
-  if (refreshButton) {
-    refreshButton.addEventListener("click", async () => {
-      if (!isCloudActive()) {
-        renderCard();
-        return;
-      }
-
-      await loadCloudCards({
-        preserveCurrentCardId: getCurrentCardId(),
-        statusMessage: "Deck refreshed from the cloud.",
-      });
-    });
-  }
 
   cardForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -161,9 +171,12 @@ function wireEventListeners() {
       return;
     }
 
-    cards.push(createCard(question, answer));
-    currentIndex = cards.length - 1;
-    persistLocalCards(cards);
+    allCards.push(createCard(question, answer, activeTopic));
+    persistLocalCards(allCards);
+    topicNames = normalizeTopicList(topicNames, allCards);
+    persistLocalTopics(topicNames);
+    currentIndex = getVisibleCards().length - 1;
+    renderTopics();
     renderCard();
     cardForm.reset();
     questionInput.focus();
@@ -193,13 +206,13 @@ function wireEventListeners() {
     });
 
     if (error) {
-      setSyncState("error", error.message);
+      setSyncState("error", formatCloudError(error));
       return;
     }
 
     setSyncState(
       "ready",
-      "Magic link sent. Open it on this device to connect your deck.",
+      "Magic link sent. Open it on this device to connect your decks.",
     );
     syncForm.reset();
   });
@@ -210,18 +223,21 @@ function wireEventListeners() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      setSyncState("error", error.message);
+      setSyncState("error", formatCloudError(error));
       return;
     }
 
     session = null;
-    cards = loadLocalCards();
+    allCards = loadLocalCards();
+    topicNames = loadLocalTopics(allCards);
+    ensureTopicState();
     currentIndex = 0;
+    renderTopics();
     renderCard();
     setSyncState(
       isConfiguredForCloud ? "ready" : "local",
       isConfiguredForCloud
-        ? "Signed out. Local cards are still available on this device."
+        ? "Signed out. Local decks are still available on this device."
         : "Using this device only.",
     );
   });
@@ -251,7 +267,7 @@ function wireEventListeners() {
       return;
     }
 
-    await loadCloudCards({
+    await loadCloudData({
       preserveCurrentCardId: getCurrentCardId(),
       quiet: true,
     });
@@ -266,11 +282,7 @@ function wireEventListeners() {
       closeSyncPanel();
     }
 
-    if (
-      event.key === "Escape" &&
-      zoomModal &&
-      !zoomModal.hidden
-    ) {
+    if (event.key === "Escape" && zoomModal && !zoomModal.hidden) {
       closeZoomModal();
     }
   });
@@ -278,6 +290,7 @@ function wireEventListeners() {
 
 async function initializeApp() {
   hydrateConfigForm();
+  renderTopics();
   renderCard();
 
   const cloudConfig = getCloudConfig();
@@ -285,7 +298,7 @@ async function initializeApp() {
   if (!cloudConfig) {
     setSyncState(
       "local",
-      "Using this device only. Add Supabase below when you want phone and laptop sync.",
+      "Using this device only. Add Supabase below when you want topics synced everywhere.",
     );
     return;
   }
@@ -313,7 +326,7 @@ async function initializeApp() {
   } = await supabase.auth.getSession();
 
   if (error) {
-    setSyncState("error", error.message);
+    setSyncState("error", formatCloudError(error));
     return;
   }
 
@@ -324,8 +337,11 @@ async function initializeApp() {
     session = nextSession;
 
     if (!session) {
-      cards = loadLocalCards();
+      allCards = loadLocalCards();
+      topicNames = loadLocalTopics(allCards);
+      ensureTopicState();
       currentIndex = 0;
+      renderTopics();
       renderCard();
       setSyncState(
         "ready",
@@ -334,7 +350,7 @@ async function initializeApp() {
       return;
     }
 
-    await loadCloudCards({
+    await loadCloudData({
       preserveCurrentCardId: getCurrentCardId(),
       statusMessage: `Signed in as ${session.user.email}.`,
     });
@@ -348,46 +364,63 @@ async function initializeApp() {
     return;
   }
 
-  await loadCloudCards({
+  await loadCloudData({
     preserveCurrentCardId: getCurrentCardId(),
     statusMessage: `Signed in as ${session.user.email}.`,
   });
 }
 
-async function loadCloudCards(options = {}) {
+async function loadCloudData(options = {}) {
   if (!supabase || !session) return;
 
   const { preserveCurrentCardId = null, quiet = false, statusMessage = null } = options;
   let finalMessage = statusMessage ?? `Signed in as ${session.user.email}.`;
 
-  const { data, error } = await supabase
-    .from("flashcards")
-    .select("id, question, answer, created_at")
-    .order("created_at", { ascending: true });
+  const [cardsResult, topicsResult] = await Promise.all([
+    supabase
+      .from("flashcards")
+      .select("id, question, answer, topic, created_at")
+      .order("created_at", { ascending: true }),
+    supabase.from("topics").select("name").order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
-    setSyncState("error", error.message);
+  if (cardsResult.error) {
+    setSyncState("error", formatCloudError(cardsResult.error));
     return;
   }
 
-  let remoteCards = normalizeCards(data ?? []);
+  if (topicsResult.error) {
+    setSyncState("error", formatCloudError(topicsResult.error));
+    return;
+  }
 
-  if (!remoteCards.length) {
-    const importedCards = await importLocalCardsIntoCloud();
+  let remoteCards = normalizeCards(cardsResult.data ?? []);
+  let remoteTopics = normalizeTopicList(
+    (topicsResult.data ?? []).map((topic) => topic.name),
+    remoteCards,
+  );
 
-    if (importedCards.length) {
-      remoteCards = importedCards;
+  if (!remoteCards.length && !hasUserTopics(remoteTopics)) {
+    const importedState = await importLocalStateToCloud();
+
+    if (importedState) {
+      remoteCards = importedState.cards;
+      remoteTopics = importedState.topics;
 
       if (!quiet) {
-        finalMessage = "Imported your current local deck into the cloud for this account.";
+        finalMessage = "Imported your current decks into the cloud for this account.";
       }
     }
   }
 
-  cards = remoteCards;
-  persistLocalCards(cards);
+  allCards = remoteCards;
+  topicNames = remoteTopics;
+  persistLocalCards(allCards);
+  persistLocalTopics(topicNames);
+  ensureTopicState();
   syncEmailInput.value = session.user.email ?? "";
   restoreCurrentIndex(preserveCurrentCardId);
+  renderTopics();
   renderCard();
 
   if (!quiet) {
@@ -395,32 +428,53 @@ async function loadCloudCards(options = {}) {
   }
 }
 
-async function importLocalCardsIntoCloud() {
-  if (!supabase || !session) return [];
+async function importLocalStateToCloud() {
+  if (!supabase || !session) return null;
 
   const localCards = loadLocalCards();
+  const localTopics = loadLocalTopics(localCards);
 
-  if (!localCards.length) {
-    return [];
-  }
+  const topicPayload = localTopics.map((name) => ({
+    user_id: session.user.id,
+    name,
+  }));
 
-  const payload = localCards.map((card) => ({
+  const cardsPayload = localCards.map((card) => ({
     user_id: session.user.id,
     question: card.question,
     answer: card.answer,
+    topic: card.topic,
   }));
 
-  const { data, error } = await supabase
-    .from("flashcards")
-    .insert(payload)
-    .select("id, question, answer, created_at");
+  if (topicPayload.length) {
+    const { error: topicsError } = await supabase.from("topics").insert(topicPayload);
 
-  if (error) {
-    setSyncState("error", error.message);
-    return [];
+    if (topicsError && !isDuplicateTopicError(topicsError)) {
+      setSyncState("error", formatCloudError(topicsError));
+      return null;
+    }
   }
 
-  return normalizeCards(data ?? []);
+  let importedCards = [];
+
+  if (cardsPayload.length) {
+    const { data, error } = await supabase
+      .from("flashcards")
+      .insert(cardsPayload)
+      .select("id, question, answer, topic, created_at");
+
+    if (error) {
+      setSyncState("error", formatCloudError(error));
+      return null;
+    }
+
+    importedCards = normalizeCards(data ?? []);
+  }
+
+  return {
+    cards: importedCards,
+    topics: normalizeTopicList(localTopics, importedCards),
+  };
 }
 
 async function addCloudCard(question, answer) {
@@ -435,24 +489,60 @@ async function addCloudCard(question, answer) {
       user_id: session.user.id,
       question,
       answer,
+      topic: activeTopic,
     })
-    .select("id, question, answer, created_at")
+    .select("id, question, answer, topic, created_at")
     .single();
 
   isSaving = false;
 
   if (error) {
-    setSyncState("error", error.message);
+    setSyncState("error", formatCloudError(error));
     return;
   }
 
-  cards.push(normalizeCards([data])[0]);
-  currentIndex = cards.length - 1;
-  persistLocalCards(cards);
+  allCards.push(normalizeCards([data])[0]);
+  topicNames = normalizeTopicList(topicNames, allCards);
+  persistLocalCards(allCards);
+  persistLocalTopics(topicNames);
+  currentIndex = getVisibleCards().length - 1;
+  renderTopics();
   renderCard();
   cardForm.reset();
   questionInput.focus();
   setSyncState("synced", "Card saved and synced.");
+}
+
+async function addCloudTopic(topicName) {
+  if (!supabase || !session) return;
+
+  if (topicNames.includes(topicName)) {
+    setActiveTopic(topicName);
+    topicForm.reset();
+    return;
+  }
+
+  isSaving = true;
+  setSyncState("synced", "Creating topic...");
+
+  const { error } = await supabase.from("topics").insert({
+    user_id: session.user.id,
+    name: topicName,
+  });
+
+  isSaving = false;
+
+  if (error && !isDuplicateTopicError(error)) {
+    setSyncState("error", formatCloudError(error));
+    return;
+  }
+
+  topicNames = normalizeTopicList([...topicNames, topicName], allCards);
+  persistLocalTopics(topicNames);
+  setActiveTopic(topicName);
+  topicForm.reset();
+  topicNameInput.focus();
+  setSyncState("synced", "Topic created.");
 }
 
 async function deleteCloudCard(cardId) {
@@ -466,74 +556,33 @@ async function deleteCloudCard(cardId) {
   isSaving = false;
 
   if (error) {
-    setSyncState("error", error.message);
+    setSyncState("error", formatCloudError(error));
     return;
   }
 
-  cards = cards.filter((card) => card.id !== cardId);
+  allCards = allCards.filter((card) => card.id !== cardId);
+  persistLocalCards(allCards);
+  topicNames = normalizeTopicList(topicNames, allCards);
+  persistLocalTopics(topicNames);
 
-  if (currentIndex >= cards.length) {
-    currentIndex = Math.max(0, cards.length - 1);
+  if (currentIndex >= getVisibleCards().length) {
+    currentIndex = Math.max(0, getVisibleCards().length - 1);
   }
 
-  persistLocalCards(cards);
+  ensureTopicState();
+  renderTopics();
   renderCard();
   setSyncState("synced", "Card deleted.");
 }
 
-async function addSampleCardsToCloud() {
-  if (!supabase || !session) return;
-
-  const mergedCards = mergeCards(cards, buildSampleCards());
-  const missingCards = mergedCards.filter(
-    (mergedCard) =>
-      !cards.some(
-        (card) =>
-          card.question === mergedCard.question && card.answer === mergedCard.answer,
-      ),
-  );
-
-  if (!missingCards.length) {
-    setSyncState("synced", "Sample cards are already in your synced deck.");
-    return;
-  }
-
-  isSaving = true;
-  setSyncState("synced", "Adding sample cards to the cloud...");
-
-  const { data, error } = await supabase
-    .from("flashcards")
-    .insert(
-      missingCards.map((card) => ({
-        user_id: session.user.id,
-        question: card.question,
-        answer: card.answer,
-      })),
-    )
-    .select("id, question, answer, created_at");
-
-  isSaving = false;
-
-  if (error) {
-    setSyncState("error", error.message);
-    return;
-  }
-
-  cards = [...cards, ...normalizeCards(data ?? [])];
-  currentIndex = cards.length - 1;
-  persistLocalCards(cards);
-  renderCard();
-  setSyncState("synced", "Sample cards added.");
-}
-
 function flipCard() {
-  if (!cards.length) return;
+  if (!getVisibleCards().length) return;
   flashcard.classList.toggle("is-flipped");
   syncZoomFlipState();
 }
 
 function flipZoomCard() {
-  if (!cards.length) return;
+  if (!getVisibleCards().length) return;
   zoomFlashcard.classList.toggle("is-flipped");
   syncMainFlipState();
 }
@@ -542,23 +591,38 @@ function renderCard() {
   flashcard.classList.remove("is-flipped");
   zoomFlashcard.classList.remove("is-flipped");
 
-  if (!cards.length) {
-    const emptyBackText = isCloudActive()
-      ? "Add a card and it will sync across your signed-in devices."
-      : "Add one with the form to start your deck.";
+  const visibleCards = getVisibleCards();
+  activeTopicName.textContent = activeTopic;
 
-    setCardText("No cards yet", emptyBackText);
+  if (!visibleCards.length) {
+    setCardText(
+      `No cards in ${activeTopic}`,
+      "Add a card below to start this topic.",
+    );
     cardCount.textContent = "0 cards";
     cardPosition.textContent = "Card 0 of 0";
     setDisabledState(true);
     return;
   }
 
-  const currentCard = cards[currentIndex];
+  const currentCard = visibleCards[currentIndex];
   setCardText(currentCard.question, currentCard.answer);
-  cardCount.textContent = `${cards.length} card${cards.length === 1 ? "" : "s"}`;
-  cardPosition.textContent = `Card ${currentIndex + 1} of ${cards.length}`;
+  cardCount.textContent = `${visibleCards.length} card${visibleCards.length === 1 ? "" : "s"}`;
+  cardPosition.textContent = `Card ${currentIndex + 1} of ${visibleCards.length}`;
   setDisabledState(false);
+}
+
+function renderTopics() {
+  const topics = topicNames.length ? topicNames : [DEFAULT_TOPIC];
+  topicSelect.innerHTML = topics
+    .map(
+      (topic) =>
+        `<option value="${escapeHtml(topic)}">${escapeHtml(topic)}</option>`,
+    )
+    .join("");
+
+  topicSelect.value = activeTopic;
+  activeTopicName.textContent = activeTopic;
 }
 
 function setDisabledState(isDisabled) {
@@ -578,7 +642,6 @@ function setCardText(front, back) {
 }
 
 function setSyncState(mode, message) {
-  activeSyncMode = mode;
   syncBadge.textContent =
     mode === "synced"
       ? "Cloud synced"
@@ -603,9 +666,6 @@ function setSyncState(mode, message) {
   }
 
   signOutButton.disabled = !isCloudActive();
-  if (refreshButton) {
-    refreshButton.disabled = !isCloudActive();
-  }
 }
 
 function openSyncPanel() {
@@ -639,7 +699,7 @@ function closeSyncPanel() {
 }
 
 function openZoomModal() {
-  if (!cards.length) return;
+  if (!getVisibleCards().length) return;
 
   zoomModal.hidden = false;
   zoomModal.setAttribute("aria-hidden", "false");
@@ -659,11 +719,51 @@ function closeZoomModal() {
 }
 
 function syncZoomFlipState() {
-  zoomFlashcard.classList.toggle("is-flipped", flashcard.classList.contains("is-flipped"));
+  zoomFlashcard.classList.toggle(
+    "is-flipped",
+    flashcard.classList.contains("is-flipped"),
+  );
 }
 
 function syncMainFlipState() {
-  flashcard.classList.toggle("is-flipped", zoomFlashcard.classList.contains("is-flipped"));
+  flashcard.classList.toggle(
+    "is-flipped",
+    zoomFlashcard.classList.contains("is-flipped"),
+  );
+}
+
+function getVisibleCards() {
+  return allCards.filter((card) => card.topic === activeTopic);
+}
+
+function getCurrentCardId() {
+  return getVisibleCards()[currentIndex]?.id ?? null;
+}
+
+function setActiveTopic(topic, options = {}) {
+  const { persist = true, resetIndex = true } = options;
+  activeTopic = normalizeTopicName(topic);
+
+  if (persist) {
+    localStorage.setItem(ACTIVE_TOPIC_STORAGE_KEY, activeTopic);
+  }
+
+  if (resetIndex) {
+    currentIndex = 0;
+  }
+
+  ensureTopicState();
+  renderTopics();
+  renderCard();
+}
+
+function ensureTopicState() {
+  topicNames = normalizeTopicList(topicNames, allCards);
+
+  if (!topicNames.includes(activeTopic)) {
+    activeTopic = topicNames[0] ?? DEFAULT_TOPIC;
+    localStorage.setItem(ACTIVE_TOPIC_STORAGE_KEY, activeTopic);
+  }
 }
 
 function loadLocalCards() {
@@ -674,27 +774,49 @@ function loadLocalCards() {
   }
 
   try {
-    const parsedCards = JSON.parse(savedCards);
-    const normalizedCards = normalizeCards(parsedCards);
-    return normalizedCards.length ? normalizedCards : [];
+    return normalizeCards(JSON.parse(savedCards));
   } catch {
     return buildSampleCards();
   }
+}
+
+function loadLocalTopics(cards) {
+  const savedTopics = localStorage.getItem(TOPICS_STORAGE_KEY);
+
+  try {
+    const parsedTopics = savedTopics ? JSON.parse(savedTopics) : [];
+    return normalizeTopicList(parsedTopics, cards);
+  } catch {
+    return normalizeTopicList([], cards);
+  }
+}
+
+function loadActiveTopic() {
+  return normalizeTopicName(
+    localStorage.getItem(ACTIVE_TOPIC_STORAGE_KEY) || DEFAULT_TOPIC,
+  );
 }
 
 function persistLocalCards(cardsToStore) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cardsToStore));
 }
 
-function buildSampleCards() {
-  return sampleCards.map((card) => createCard(card.question, card.answer));
+function persistLocalTopics(topicsToStore) {
+  localStorage.setItem(TOPICS_STORAGE_KEY, JSON.stringify(topicsToStore));
 }
 
-function createCard(question, answer, partial = {}) {
+function buildSampleCards() {
+  return sampleCards.map((card) =>
+    createCard(card.question, card.answer, card.topic),
+  );
+}
+
+function createCard(question, answer, topic = DEFAULT_TOPIC, partial = {}) {
   return {
     id: partial.id ?? crypto.randomUUID(),
     question: question.trim(),
     answer: answer.trim(),
+    topic: normalizeTopicName(partial.topic ?? topic),
     created_at: partial.created_at ?? new Date().toISOString(),
   };
 }
@@ -708,21 +830,55 @@ function normalizeCards(cardList) {
         card.question.trim() &&
         card.answer.trim(),
     )
-    .map((card) => createCard(card.question, card.answer, card));
+    .map((card) =>
+      createCard(card.question, card.answer, card.topic ?? DEFAULT_TOPIC, card),
+    );
 }
 
-function mergeCards(existingCards, incomingCards) {
-  const uniqueCards = new Map();
+function normalizeTopicList(topics, cards = []) {
+  const topicSet = new Set();
 
-  for (const card of [...existingCards, ...incomingCards]) {
-    const key = `${card.question}:::${card.answer}`;
-
-    if (!uniqueCards.has(key)) {
-      uniqueCards.set(key, card);
+  for (const topic of topics ?? []) {
+    const normalizedTopic = normalizeTopicName(topic);
+    if (normalizedTopic) {
+      topicSet.add(normalizedTopic);
     }
   }
 
-  return [...uniqueCards.values()];
+  for (const card of cards ?? []) {
+    topicSet.add(normalizeTopicName(card.topic));
+  }
+
+  if (!topicSet.size) {
+    topicSet.add(DEFAULT_TOPIC);
+  }
+
+  return [...topicSet];
+}
+
+function normalizeTopicName(topic) {
+  const value = String(topic ?? "").trim();
+  return value || DEFAULT_TOPIC;
+}
+
+function restoreCurrentIndex(preferredCardId) {
+  const visibleCards = getVisibleCards();
+
+  if (!visibleCards.length) {
+    currentIndex = 0;
+    return;
+  }
+
+  const preferredIndex = preferredCardId
+    ? visibleCards.findIndex((card) => card.id === preferredCardId)
+    : -1;
+
+  if (preferredIndex >= 0) {
+    currentIndex = preferredIndex;
+    return;
+  }
+
+  currentIndex = Math.min(currentIndex, visibleCards.length - 1);
 }
 
 function getCloudConfig() {
@@ -756,30 +912,40 @@ function hydrateConfigForm() {
   configKeyInput.value = savedConfig.supabaseKey || fileConfig.supabaseKey || "";
 }
 
-function restoreCurrentIndex(preferredCardId) {
-  if (!cards.length) {
-    currentIndex = 0;
-    return;
-  }
-
-  const preferredIndex = preferredCardId
-    ? cards.findIndex((card) => card.id === preferredCardId)
-    : -1;
-
-  if (preferredIndex >= 0) {
-    currentIndex = preferredIndex;
-    return;
-  }
-
-  currentIndex = Math.min(currentIndex, cards.length - 1);
-}
-
-function getCurrentCardId() {
-  return cards[currentIndex]?.id ?? null;
-}
-
 function isCloudActive() {
   return Boolean(supabase && session?.user);
+}
+
+function hasUserTopics(topics) {
+  return topics.some((topic) => topic !== DEFAULT_TOPIC);
+}
+
+function isDuplicateTopicError(error) {
+  return (
+    error?.code === "23505" ||
+    (error?.message ?? "").toLowerCase().includes("duplicate")
+  );
+}
+
+function formatCloudError(error) {
+  const message = error?.message ?? "Unknown cloud error.";
+
+  if (
+    message.includes("column") && message.includes("topic") ||
+    message.includes("relation") && message.includes("topics")
+  ) {
+    return "Run supabase-topics-migration.sql in Supabase SQL Editor, then refresh this page.";
+  }
+
+  return message;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function cleanupAuthRedirectHash() {

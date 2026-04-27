@@ -137,6 +137,32 @@ body::after {
   font-size: 0.95rem;
 }
 
+.topic-toolbar {
+  margin-bottom: 1rem;
+}
+
+.topic-picker {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.topic-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.topic-select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+}
+
 .sync-badge {
   display: inline-flex;
   align-items: center;
@@ -267,6 +293,7 @@ body::after {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -321,6 +348,31 @@ textarea {
 .editor-panel {
   display: flex;
   flex-direction: column;
+}
+
+.topic-manager {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.topic-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.topic-note span {
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+.topic-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
 }
 
 .small-button {
@@ -456,6 +508,7 @@ textarea {
   color: var(--ink);
 }
 
+.topic-select:focus,
 .card-form input:focus,
 .card-form textarea:focus {
   outline: 2px solid rgba(180, 79, 45, 0.22);
@@ -493,6 +546,10 @@ textarea {
   .hero-top {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .topic-form {
+    grid-template-columns: 1fr;
   }
 }
 

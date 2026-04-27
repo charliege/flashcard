@@ -23,6 +23,12 @@ Open [index.html](/Users/charliege/Documents/New project/flashcard-site/index.ht
 5. In Supabase Auth URL settings, add your deployed GitHub Pages URL as both the site URL and an allowed redirect URL.
 6. Open the site, enter your email, and use the magic link on both phone and laptop.
 
+## Existing synced projects
+
+If you already set up Supabase before topics were added, run
+[supabase-topics-migration.sql](/Users/charliege/Documents/New project/flashcard-site/supabase-topics-migration.sql)
+once in the Supabase SQL editor, then refresh the site.
+
 ## Notes
 
 - The app stays static, so it still works on GitHub Pages.
