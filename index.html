@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Flip</title>
-    <link rel="stylesheet" href="./style.css?v=5" />
+    <link rel="stylesheet" href="./style.css?v=6" />
   </head>
   <body>
     <div class="page-shell">
@@ -76,6 +76,9 @@
             <button id="delete-card" class="ghost-button" type="button">
               Delete Current Card
             </button>
+            <button id="edit-card" class="secondary-button" type="button">
+              Edit Current Card
+            </button>
             <button id="flip-card" class="primary-button" type="button">
               Flip Card
             </button>
@@ -102,7 +105,7 @@
             </form>
           </section>
 
-          <h2>Add a card</h2>
+          <h2 id="editor-title">Add a card</h2>
 
           <form id="card-form" class="card-form">
             <label for="question">Front</label>
@@ -123,7 +126,19 @@
               required
             ></textarea>
 
-            <button class="primary-button" type="submit">Save Card</button>
+            <div class="card-form-actions">
+              <button id="save-card" class="primary-button" type="submit">
+                Save Card
+              </button>
+              <button
+                id="cancel-edit"
+                class="ghost-button"
+                type="button"
+                hidden
+              >
+                Cancel Edit
+              </button>
+            </div>
           </form>
 
         </aside>
@@ -238,6 +253,6 @@
     </section>
 
     <script src="./config.js?v=2"></script>
-    <script type="module" src="./script.js?v=5"></script>
+    <script type="module" src="./script.js?v=6"></script>
   </body>
 </html>

@@ -51,9 +51,13 @@ const prevButton = document.querySelector("#prev-card");
 const nextButton = document.querySelector("#next-card");
 const flipButton = document.querySelector("#flip-card");
 const deleteButton = document.querySelector("#delete-card");
+const editButton = document.querySelector("#edit-card");
 const cardForm = document.querySelector("#card-form");
+const editorTitle = document.querySelector("#editor-title");
 const questionInput = document.querySelector("#question");
 const answerInput = document.querySelector("#answer");
+const saveCardButton = document.querySelector("#save-card");
+const cancelEditButton = document.querySelector("#cancel-edit");
 const syncForm = document.querySelector("#sync-form");
 const syncEmailInput = document.querySelector("#sync-email");
 const signOutButton = document.querySelector("#sign-out");
@@ -69,6 +73,7 @@ let supabase = null;
 let session = null;
 let isSaving = false;
 let isConfiguredForCloud = false;
+let editingCardId = null;
 
 ensureTopicState();
 wireEventListeners();
@@ -84,6 +89,7 @@ function wireEventListeners() {
   zoomBackdrop.addEventListener("click", closeZoomModal);
 
   topicSelect.addEventListener("change", () => {
+    exitEditMode({ resetForm: true });
     setActiveTopic(topicSelect.value);
   });
 
@@ -123,6 +129,7 @@ function wireEventListeners() {
   prevButton.addEventListener("click", () => {
     const visibleCards = getVisibleCards();
     if (!visibleCards.length) return;
+    exitEditMode({ resetForm: true });
     currentIndex = (currentIndex - 1 + visibleCards.length) % visibleCards.length;
     renderCard();
   });
@@ -130,6 +137,7 @@ function wireEventListeners() {
   nextButton.addEventListener("click", () => {
     const visibleCards = getVisibleCards();
     if (!visibleCards.length) return;
+    exitEditMode({ resetForm: true });
     currentIndex = (currentIndex + 1) % visibleCards.length;
     renderCard();
   });
@@ -139,10 +147,18 @@ function wireEventListeners() {
     if (!visibleCards.length || isSaving) return;
 
     const cardToDelete = visibleCards[currentIndex];
+    const isDeletingEditedCard = cardToDelete.id === editingCardId;
 
     if (isCloudActive()) {
+      if (isDeletingEditedCard) {
+        exitEditMode({ resetForm: true });
+      }
       await deleteCloudCard(cardToDelete.id);
       return;
+    }
+
+    if (isDeletingEditedCard) {
+      exitEditMode({ resetForm: true });
     }
 
     allCards = allCards.filter((card) => card.id !== cardToDelete.id);
@@ -158,6 +174,12 @@ function wireEventListeners() {
     renderCard();
   });
 
+  editButton.addEventListener("click", () => {
+    const currentCard = getCurrentCard();
+    if (!currentCard) return;
+    startEditingCard(currentCard);
+  });
+
   cardForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -165,6 +187,27 @@ function wireEventListeners() {
     const answer = answerInput.value.trim();
 
     if (!question || !answer || isSaving) return;
+
+    if (editingCardId) {
+      if (isCloudActive()) {
+        await updateCloudCard(editingCardId, question, answer);
+        return;
+      }
+
+      allCards = allCards.map((card) =>
+        card.id === editingCardId
+          ? createCard(question, answer, activeTopic, card)
+          : card,
+      );
+      persistLocalCards(allCards);
+      topicNames = normalizeTopicList(topicNames, allCards);
+      persistLocalTopics(topicNames);
+      restoreCurrentIndex(editingCardId);
+      renderTopics();
+      renderCard();
+      exitEditMode({ resetForm: true, focusQuestion: true });
+      return;
+    }
 
     if (isCloudActive()) {
       await addCloudCard(question, answer);
@@ -180,6 +223,10 @@ function wireEventListeners() {
     renderCard();
     cardForm.reset();
     questionInput.focus();
+  });
+
+  cancelEditButton.addEventListener("click", () => {
+    exitEditMode({ resetForm: true });
   });
 
   syncForm.addEventListener("submit", async (event) => {
@@ -228,6 +275,7 @@ function wireEventListeners() {
     }
 
     session = null;
+    exitEditMode({ resetForm: true });
     allCards = loadLocalCards();
     topicNames = loadLocalTopics(allCards);
     ensureTopicState();
@@ -417,6 +465,7 @@ async function loadCloudData(options = {}) {
   topicNames = remoteTopics;
   persistLocalCards(allCards);
   persistLocalTopics(topicNames);
+  exitEditMode({ resetForm: true });
   ensureTopicState();
   syncEmailInput.value = session.user.email ?? "";
   restoreCurrentIndex(preserveCurrentCardId);
@@ -513,6 +562,43 @@ async function addCloudCard(question, answer) {
   setSyncState("synced", "Card saved and synced.");
 }
 
+async function updateCloudCard(cardId, question, answer) {
+  if (!supabase || !session) return;
+
+  isSaving = true;
+  setSyncState("synced", "Updating card in the cloud...");
+
+  const { data, error } = await supabase
+    .from("flashcards")
+    .update({
+      question,
+      answer,
+      topic: activeTopic,
+    })
+    .eq("id", cardId)
+    .select("id, question, answer, topic, created_at")
+    .single();
+
+  isSaving = false;
+
+  if (error) {
+    setSyncState("error", formatCloudError(error));
+    return;
+  }
+
+  const updatedCard = normalizeCards([data])[0];
+
+  allCards = allCards.map((card) => (card.id === cardId ? updatedCard : card));
+  persistLocalCards(allCards);
+  topicNames = normalizeTopicList(topicNames, allCards);
+  persistLocalTopics(topicNames);
+  restoreCurrentIndex(cardId);
+  renderTopics();
+  renderCard();
+  exitEditMode({ resetForm: true, focusQuestion: true });
+  setSyncState("synced", "Card updated and synced.");
+}
+
 async function addCloudTopic(topicName) {
   if (!supabase || !session) return;
 
@@ -601,6 +687,7 @@ function renderCard() {
     );
     cardCount.textContent = "0 cards";
     cardPosition.textContent = "Card 0 of 0";
+    exitEditMode({ resetForm: true });
     setDisabledState(true);
     return;
   }
@@ -630,6 +717,7 @@ function setDisabledState(isDisabled) {
   nextButton.disabled = isDisabled;
   flipButton.disabled = isDisabled;
   deleteButton.disabled = isDisabled;
+  editButton.disabled = isDisabled;
   openZoomButton.disabled = isDisabled;
   zoomFlipButton.disabled = isDisabled;
 }
@@ -639,6 +727,10 @@ function setCardText(front, back) {
   backText.textContent = back;
   zoomFrontText.textContent = front;
   zoomBackText.textContent = back;
+  applyAdaptiveTextSize(frontText, front);
+  applyAdaptiveTextSize(backText, back);
+  applyAdaptiveTextSize(zoomFrontText, front);
+  applyAdaptiveTextSize(zoomBackText, back);
 }
 
 function setSyncState(mode, message) {
@@ -736,8 +828,12 @@ function getVisibleCards() {
   return allCards.filter((card) => card.topic === activeTopic);
 }
 
+function getCurrentCard() {
+  return getVisibleCards()[currentIndex] ?? null;
+}
+
 function getCurrentCardId() {
-  return getVisibleCards()[currentIndex]?.id ?? null;
+  return getCurrentCard()?.id ?? null;
 }
 
 function setActiveTopic(topic, options = {}) {
@@ -764,6 +860,73 @@ function ensureTopicState() {
     activeTopic = topicNames[0] ?? DEFAULT_TOPIC;
     localStorage.setItem(ACTIVE_TOPIC_STORAGE_KEY, activeTopic);
   }
+}
+
+function startEditingCard(card) {
+  editingCardId = card.id;
+  editorTitle.textContent = "Edit current card";
+  saveCardButton.textContent = "Update Card";
+  cancelEditButton.hidden = false;
+  questionInput.value = card.question;
+  answerInput.value = card.answer;
+  questionInput.focus();
+  questionInput.setSelectionRange(questionInput.value.length, questionInput.value.length);
+}
+
+function exitEditMode(options = {}) {
+  const { resetForm = false, focusQuestion = false } = options;
+  const wasEditing = Boolean(editingCardId);
+
+  editingCardId = null;
+  editorTitle.textContent = "Add a card";
+  saveCardButton.textContent = "Save Card";
+  cancelEditButton.hidden = true;
+
+  if (resetForm && wasEditing) {
+    cardForm.reset();
+  }
+
+  if (focusQuestion) {
+    questionInput.focus();
+  }
+}
+
+function applyAdaptiveTextSize(element, text) {
+  const size = getAdaptiveTextSize(text);
+
+  if (size === "default") {
+    delete element.dataset.size;
+    return;
+  }
+
+  element.dataset.size = size;
+}
+
+function getAdaptiveTextSize(text) {
+  const normalizedText = String(text ?? "").trim();
+
+  if (!normalizedText) {
+    return "default";
+  }
+
+  const wordCount = normalizedText.split(/\s+/).filter(Boolean).length;
+  const charCount = normalizedText.length;
+  const lineCount = normalizedText.split(/\n+/).filter(Boolean).length;
+  const densityScore = wordCount * 1.9 + charCount / 13 + lineCount * 3.5;
+
+  if (densityScore >= 52 || charCount >= 250) {
+    return "tiny";
+  }
+
+  if (densityScore >= 34 || charCount >= 155) {
+    return "small";
+  }
+
+  if (densityScore >= 18 || charCount >= 80) {
+    return "medium";
+  }
+
+  return "default";
 }
 
 function loadLocalCards() {

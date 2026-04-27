@@ -279,7 +279,24 @@ body::after {
   margin: auto 0;
   font-size: clamp(1.5rem, 4vw, 2.3rem);
   line-height: 1.2;
+  overflow-wrap: anywhere;
+  hyphens: auto;
   text-wrap: balance;
+}
+
+.card-text[data-size="medium"] {
+  font-size: clamp(1.3rem, 3.4vw, 2rem);
+  line-height: 1.26;
+}
+
+.card-text[data-size="small"] {
+  font-size: clamp(1.1rem, 2.9vw, 1.7rem);
+  line-height: 1.32;
+}
+
+.card-text[data-size="tiny"] {
+  font-size: clamp(0.95rem, 2.45vw, 1.38rem);
+  line-height: 1.38;
 }
 
 .controls {
@@ -427,6 +444,21 @@ textarea {
   font-size: clamp(2rem, 5vw, 3.6rem);
 }
 
+.zoom-card-text[data-size="medium"] {
+  font-size: clamp(1.7rem, 4.1vw, 2.8rem);
+  line-height: 1.24;
+}
+
+.zoom-card-text[data-size="small"] {
+  font-size: clamp(1.4rem, 3.4vw, 2.15rem);
+  line-height: 1.3;
+}
+
+.zoom-card-text[data-size="tiny"] {
+  font-size: clamp(1.08rem, 2.8vw, 1.68rem);
+  line-height: 1.36;
+}
+
 .sync-drawer {
   position: fixed;
   top: 0;
@@ -482,6 +514,13 @@ textarea {
     auto
     minmax(170px, 1fr)
     auto;
+}
+
+.card-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: auto;
 }
 
 .card-form label {
@@ -603,6 +642,11 @@ textarea {
   .controls,
   .actions {
     justify-content: stretch;
+  }
+
+  .card-form-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .drawer-actions,
