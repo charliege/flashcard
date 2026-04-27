@@ -323,6 +323,10 @@ textarea {
   z-index: 30;
 }
 
+.sync-drawer[hidden] {
+  display: none;
+}
+
 .sync-drawer.is-open {
   transform: translateX(0);
 }

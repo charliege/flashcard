@@ -59,9 +59,18 @@ initializeApp();
 function wireEventListeners() {
   flashcard.addEventListener("click", flipCard);
   flipButton.addEventListener("click", flipCard);
-  openSyncPanelButton.addEventListener("click", openSyncPanel);
-  closeSyncPanelButton.addEventListener("click", closeSyncPanel);
-  syncPanelBackdrop.addEventListener("click", closeSyncPanel);
+
+  if (openSyncPanelButton) {
+    openSyncPanelButton.addEventListener("click", openSyncPanel);
+  }
+
+  if (closeSyncPanelButton) {
+    closeSyncPanelButton.addEventListener("click", closeSyncPanel);
+  }
+
+  if (syncPanelBackdrop) {
+    syncPanelBackdrop.addEventListener("click", closeSyncPanel);
+  }
 
   prevButton.addEventListener("click", () => {
     if (!cards.length) return;
@@ -232,7 +241,11 @@ function wireEventListeners() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && syncDrawer.classList.contains("is-open")) {
+    if (
+      event.key === "Escape" &&
+      syncDrawer &&
+      syncDrawer.classList.contains("is-open")
+    ) {
       closeSyncPanel();
     }
   });
@@ -535,19 +548,26 @@ function setSyncState(mode, message) {
 
   syncBadge.dataset.mode = mode;
   syncMessage.textContent = message;
-  openSyncPanelButton.textContent =
-    mode === "synced"
-      ? "Cloud Synced"
-      : mode === "ready"
-        ? "Cloud Ready"
-        : mode === "error"
-          ? "Sync Issue"
-          : "Cloud Sync";
+
+  if (openSyncPanelButton) {
+    openSyncPanelButton.textContent =
+      mode === "synced"
+        ? "Cloud Synced"
+        : mode === "ready"
+          ? "Cloud Ready"
+          : mode === "error"
+            ? "Sync Issue"
+            : "Cloud Sync";
+  }
+
   signOutButton.disabled = !isCloudActive();
   refreshButton.disabled = !isCloudActive();
 }
 
 function openSyncPanel() {
+  if (!syncDrawer || !syncPanelBackdrop || !openSyncPanelButton) return;
+
+  syncDrawer.hidden = false;
   syncDrawer.classList.add("is-open");
   syncDrawer.setAttribute("aria-hidden", "false");
   openSyncPanelButton.setAttribute("aria-expanded", "true");
@@ -556,11 +576,19 @@ function openSyncPanel() {
 }
 
 function closeSyncPanel() {
+  if (!syncDrawer || !syncPanelBackdrop || !openSyncPanelButton) return;
+
   syncDrawer.classList.remove("is-open");
   syncDrawer.setAttribute("aria-hidden", "true");
   openSyncPanelButton.setAttribute("aria-expanded", "false");
   syncPanelBackdrop.hidden = true;
   document.body.style.overflow = "";
+
+  window.setTimeout(() => {
+    if (!syncDrawer.classList.contains("is-open")) {
+      syncDrawer.hidden = true;
+    }
+  }, 280);
 }
 
 function loadLocalCards() {
