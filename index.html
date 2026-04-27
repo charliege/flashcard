@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Flip</title>
-    <link rel="stylesheet" href="./style.css?v=3" />
+    <link rel="stylesheet" href="./style.css?v=4" />
   </head>
   <body>
     <div class="page-shell">
@@ -40,21 +40,32 @@
             >
           </div>
 
-          <button
-            id="flashcard"
-            class="flashcard"
-            type="button"
-            aria-label="Flip flash card"
-          >
-            <div class="card-face card-front">
-              <p class="face-label">Front</p>
-              <p id="card-front-text" class="card-text"></p>
-            </div>
-            <div class="card-face card-back">
-              <p class="face-label">Back</p>
-              <p id="card-back-text" class="card-text"></p>
-            </div>
-          </button>
+          <div class="flashcard-shell">
+            <button
+              id="flashcard"
+              class="flashcard"
+              type="button"
+              aria-label="Flip flash card"
+            >
+              <div class="card-face card-front">
+                <p class="face-label">Front</p>
+                <p id="card-front-text" class="card-text"></p>
+              </div>
+              <div class="card-face card-back">
+                <p class="face-label">Back</p>
+                <p id="card-back-text" class="card-text"></p>
+              </div>
+            </button>
+            <button
+              id="open-zoom"
+              class="zoom-toggle"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="zoom-modal"
+            >
+              Zoom
+            </button>
+          </div>
 
           <div class="controls">
             <button id="prev-card" class="secondary-button" type="button">
@@ -184,7 +195,46 @@
       </section>
     </aside>
 
+    <div id="zoom-backdrop" class="zoom-backdrop" hidden></div>
+    <section
+      id="zoom-modal"
+      class="zoom-modal"
+      hidden
+      aria-hidden="true"
+      aria-labelledby="zoom-title"
+    >
+      <div class="zoom-modal-panel">
+        <div class="panel-header">
+          <h2 id="zoom-title">Focus View</h2>
+          <div class="drawer-actions">
+            <button id="zoom-flip" class="secondary-button small-button" type="button">
+              Flip
+            </button>
+            <button id="close-zoom" class="ghost-button small-button" type="button">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <button
+          id="zoom-flashcard"
+          class="flashcard flashcard-zoom"
+          type="button"
+          aria-label="Flip zoomed flash card"
+        >
+          <div class="card-face card-front">
+            <p class="face-label">Front</p>
+            <p id="zoom-front-text" class="card-text zoom-card-text"></p>
+          </div>
+          <div class="card-face card-back">
+            <p class="face-label">Back</p>
+            <p id="zoom-back-text" class="card-text zoom-card-text"></p>
+          </div>
+        </button>
+      </div>
+    </section>
+
     <script src="./config.js?v=2"></script>
-    <script type="module" src="./script.js?v=3"></script>
+    <script type="module" src="./script.js?v=4"></script>
   </body>
 </html>

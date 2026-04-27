@@ -178,6 +178,10 @@ body::after {
   perspective: 1200px;
 }
 
+.flashcard-shell {
+  position: relative;
+}
+
 .flashcard::before {
   content: "";
   position: absolute;
@@ -221,6 +225,20 @@ body::after {
 
 .flashcard.is-flipped .card-back {
   transform: rotateY(360deg);
+}
+
+.zoom-toggle {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: rgba(255, 251, 245, 0.95);
+  color: var(--accent-deep);
+  box-shadow: 0 12px 30px rgba(36, 33, 40, 0.16);
+  cursor: pointer;
 }
 
 .face-label {
@@ -309,6 +327,46 @@ textarea {
   z-index: 20;
   background: rgba(27, 27, 34, 0.3);
   backdrop-filter: blur(3px);
+}
+
+.zoom-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(27, 27, 34, 0.48);
+  backdrop-filter: blur(4px);
+}
+
+.zoom-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.zoom-modal[hidden] {
+  display: none;
+}
+
+.zoom-modal-panel {
+  width: min(880px, 100%);
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 32px;
+  background: rgba(255, 251, 245, 0.98);
+  box-shadow: 0 30px 80px rgba(27, 27, 34, 0.2);
+  backdrop-filter: blur(14px);
+}
+
+.flashcard-zoom {
+  min-height: min(78vh, 700px);
+  margin-top: 1rem;
+}
+
+.zoom-card-text {
+  font-size: clamp(2rem, 5vw, 3.6rem);
 }
 
 .sync-drawer {
@@ -411,6 +469,10 @@ textarea {
     min-height: 340px;
   }
 
+  .flashcard-zoom {
+    min-height: min(72vh, 620px);
+  }
+
   .hero-top {
     flex-direction: column;
     align-items: stretch;
@@ -439,10 +501,25 @@ textarea {
     padding: 1rem;
   }
 
+  .zoom-modal {
+    padding: 0.75rem;
+  }
+
+  .zoom-modal-panel {
+    padding: 0.9rem;
+    border-radius: 24px;
+  }
+
   .flashcard,
   .flashcard::before,
   .card-face {
     border-radius: 22px;
+  }
+
+  .zoom-toggle {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    padding: 0.6rem 0.9rem;
   }
 
   .card-text {

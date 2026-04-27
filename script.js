@@ -21,8 +21,16 @@ const sampleCards = [
 const flashcard = document.querySelector("#flashcard");
 const frontText = document.querySelector("#card-front-text");
 const backText = document.querySelector("#card-back-text");
+const zoomFrontText = document.querySelector("#zoom-front-text");
+const zoomBackText = document.querySelector("#zoom-back-text");
 const cardCount = document.querySelector("#card-count");
 const cardPosition = document.querySelector("#card-position");
+const openZoomButton = document.querySelector("#open-zoom");
+const closeZoomButton = document.querySelector("#close-zoom");
+const zoomFlashcard = document.querySelector("#zoom-flashcard");
+const zoomFlipButton = document.querySelector("#zoom-flip");
+const zoomBackdrop = document.querySelector("#zoom-backdrop");
+const zoomModal = document.querySelector("#zoom-modal");
 const openSyncPanelButton = document.querySelector("#open-sync-panel");
 const closeSyncPanelButton = document.querySelector("#close-sync-panel");
 const syncDrawer = document.querySelector("#sync-drawer");
@@ -59,6 +67,11 @@ initializeApp();
 function wireEventListeners() {
   flashcard.addEventListener("click", flipCard);
   flipButton.addEventListener("click", flipCard);
+  openZoomButton.addEventListener("click", openZoomModal);
+  closeZoomButton.addEventListener("click", closeZoomModal);
+  zoomFlashcard.addEventListener("click", flipZoomCard);
+  zoomFlipButton.addEventListener("click", flipZoomCard);
+  zoomBackdrop.addEventListener("click", closeZoomModal);
 
   if (openSyncPanelButton) {
     openSyncPanelButton.addEventListener("click", openSyncPanel);
@@ -247,6 +260,14 @@ function wireEventListeners() {
       syncDrawer.classList.contains("is-open")
     ) {
       closeSyncPanel();
+    }
+
+    if (
+      event.key === "Escape" &&
+      zoomModal &&
+      !zoomModal.hidden
+    ) {
+      closeZoomModal();
     }
   });
 }
@@ -504,16 +525,25 @@ async function addSampleCardsToCloud() {
 function flipCard() {
   if (!cards.length) return;
   flashcard.classList.toggle("is-flipped");
+  syncZoomFlipState();
+}
+
+function flipZoomCard() {
+  if (!cards.length) return;
+  zoomFlashcard.classList.toggle("is-flipped");
+  syncMainFlipState();
 }
 
 function renderCard() {
   flashcard.classList.remove("is-flipped");
+  zoomFlashcard.classList.remove("is-flipped");
 
   if (!cards.length) {
-    frontText.textContent = "No cards yet";
-    backText.textContent = isCloudActive()
+    const emptyBackText = isCloudActive()
       ? "Add a card and it will sync across your signed-in devices."
       : "Add one with the form to start your deck.";
+
+    setCardText("No cards yet", emptyBackText);
     cardCount.textContent = "0 cards";
     cardPosition.textContent = "Card 0 of 0";
     setDisabledState(true);
@@ -521,8 +551,7 @@ function renderCard() {
   }
 
   const currentCard = cards[currentIndex];
-  frontText.textContent = currentCard.question;
-  backText.textContent = currentCard.answer;
+  setCardText(currentCard.question, currentCard.answer);
   cardCount.textContent = `${cards.length} card${cards.length === 1 ? "" : "s"}`;
   cardPosition.textContent = `Card ${currentIndex + 1} of ${cards.length}`;
   setDisabledState(false);
@@ -533,6 +562,15 @@ function setDisabledState(isDisabled) {
   nextButton.disabled = isDisabled;
   flipButton.disabled = isDisabled;
   deleteButton.disabled = isDisabled;
+  openZoomButton.disabled = isDisabled;
+  zoomFlipButton.disabled = isDisabled;
+}
+
+function setCardText(front, back) {
+  frontText.textContent = front;
+  backText.textContent = back;
+  zoomFrontText.textContent = front;
+  zoomBackText.textContent = back;
 }
 
 function setSyncState(mode, message) {
@@ -582,13 +620,44 @@ function closeSyncPanel() {
   syncDrawer.setAttribute("aria-hidden", "true");
   openSyncPanelButton.setAttribute("aria-expanded", "false");
   syncPanelBackdrop.hidden = true;
-  document.body.style.overflow = "";
+
+  if (zoomModal.hidden) {
+    document.body.style.overflow = "";
+  }
 
   window.setTimeout(() => {
     if (!syncDrawer.classList.contains("is-open")) {
       syncDrawer.hidden = true;
     }
   }, 280);
+}
+
+function openZoomModal() {
+  if (!cards.length) return;
+
+  zoomModal.hidden = false;
+  zoomModal.setAttribute("aria-hidden", "false");
+  zoomBackdrop.hidden = false;
+  syncZoomFlipState();
+  document.body.style.overflow = "hidden";
+}
+
+function closeZoomModal() {
+  zoomModal.hidden = true;
+  zoomModal.setAttribute("aria-hidden", "true");
+  zoomBackdrop.hidden = true;
+
+  if (!syncDrawer.classList.contains("is-open")) {
+    document.body.style.overflow = "";
+  }
+}
+
+function syncZoomFlipState() {
+  zoomFlashcard.classList.toggle("is-flipped", flashcard.classList.contains("is-flipped"));
+}
+
+function syncMainFlipState() {
+  flashcard.classList.toggle("is-flipped", zoomFlashcard.classList.contains("is-flipped"));
 }
 
 function loadLocalCards() {
