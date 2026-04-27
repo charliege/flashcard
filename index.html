@@ -9,8 +9,21 @@
   <body>
     <div class="page-shell">
       <header class="hero">
-        <p class="eyebrow">Simple flash cards</p>
-        <h1>Study Flip</h1>
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">Simple flash cards</p>
+            <h1>Study Flip</h1>
+          </div>
+          <button
+            id="open-sync-panel"
+            class="sync-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="sync-drawer"
+          >
+            Cloud Sync
+          </button>
+        </div>
         <p class="hero-copy">
           Tap the card to flip it, move through your deck, and add new cards as
           you study.
@@ -69,60 +82,6 @@
         </section>
 
         <aside class="editor-panel">
-          <section class="sync-panel">
-            <div class="panel-header">
-              <h2>Cloud Sync</h2>
-              <button id="sign-out" class="ghost-button small-button" type="button">
-                Sign Out
-              </button>
-            </div>
-            <p id="sync-message" class="panel-copy">
-              Using this device only for now.
-            </p>
-
-            <form id="sync-form" class="card-form compact-form">
-              <label for="sync-email">Sign in with email</label>
-              <input
-                id="sync-email"
-                name="sync-email"
-                type="email"
-                placeholder="you@example.com"
-                autocomplete="email"
-              />
-              <button class="primary-button" type="submit">Send Magic Link</button>
-            </form>
-
-            <details class="setup-details">
-              <summary>Connect Supabase</summary>
-              <form id="config-form" class="card-form compact-form">
-                <label for="config-url">Project URL</label>
-                <input
-                  id="config-url"
-                  name="config-url"
-                  type="url"
-                  placeholder="https://your-project.supabase.co"
-                />
-
-                <label for="config-key">Publishable or anon key</label>
-                <textarea
-                  id="config-key"
-                  name="config-key"
-                  rows="3"
-                  placeholder="sb_publishable_... or your anon key"
-                ></textarea>
-
-                <button class="secondary-button" type="submit">
-                  Save Cloud Settings On This Device
-                </button>
-              </form>
-
-              <p class="storage-note">
-                For every device automatically, add the same values to
-                <code>config.js</code> and push once to GitHub Pages.
-              </p>
-            </details>
-          </section>
-
           <h2>Add a card</h2>
           <p class="panel-copy">
             Keep it quick: prompt on the front, answer on the back.
@@ -156,6 +115,73 @@
         </aside>
       </main>
     </div>
+
+    <div id="sync-panel-backdrop" class="sync-panel-backdrop" hidden></div>
+    <aside
+      id="sync-drawer"
+      class="sync-drawer"
+      aria-hidden="true"
+      aria-labelledby="sync-drawer-title"
+    >
+      <section class="sync-panel">
+        <div class="panel-header">
+          <h2 id="sync-drawer-title">Cloud Sync</h2>
+          <div class="drawer-actions">
+            <button id="sign-out" class="ghost-button small-button" type="button">
+              Sign Out
+            </button>
+            <button id="close-sync-panel" class="ghost-button small-button" type="button">
+              Close
+            </button>
+          </div>
+        </div>
+        <p id="sync-message" class="panel-copy">
+          Using this device only for now.
+        </p>
+
+        <form id="sync-form" class="card-form compact-form">
+          <label for="sync-email">Sign in with email</label>
+          <input
+            id="sync-email"
+            name="sync-email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+          <button class="primary-button" type="submit">Send Magic Link</button>
+        </form>
+
+        <details class="setup-details">
+          <summary>Connect Supabase</summary>
+          <form id="config-form" class="card-form compact-form">
+            <label for="config-url">Project URL</label>
+            <input
+              id="config-url"
+              name="config-url"
+              type="url"
+              placeholder="https://your-project.supabase.co"
+            />
+
+            <label for="config-key">Publishable or anon key</label>
+            <textarea
+              id="config-key"
+              name="config-key"
+              rows="3"
+              placeholder="sb_publishable_... or your anon key"
+            ></textarea>
+
+            <button class="secondary-button" type="submit">
+              Save Cloud Settings On This Device
+            </button>
+          </form>
+
+          <p class="storage-note">
+            For every device automatically, add the same values to
+            <code>config.js</code> and push once to GitHub Pages.
+          </p>
+        </details>
+      </section>
+    </aside>
 
     <script src="./config.js"></script>
     <script type="module" src="./script.js"></script>

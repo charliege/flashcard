@@ -23,6 +23,10 @@ const frontText = document.querySelector("#card-front-text");
 const backText = document.querySelector("#card-back-text");
 const cardCount = document.querySelector("#card-count");
 const cardPosition = document.querySelector("#card-position");
+const openSyncPanelButton = document.querySelector("#open-sync-panel");
+const closeSyncPanelButton = document.querySelector("#close-sync-panel");
+const syncDrawer = document.querySelector("#sync-drawer");
+const syncPanelBackdrop = document.querySelector("#sync-panel-backdrop");
 const syncBadge = document.querySelector("#sync-badge");
 const syncMessage = document.querySelector("#sync-message");
 const prevButton = document.querySelector("#prev-card");
@@ -55,6 +59,9 @@ initializeApp();
 function wireEventListeners() {
   flashcard.addEventListener("click", flipCard);
   flipButton.addEventListener("click", flipCard);
+  openSyncPanelButton.addEventListener("click", openSyncPanel);
+  closeSyncPanelButton.addEventListener("click", closeSyncPanel);
+  syncPanelBackdrop.addEventListener("click", closeSyncPanel);
 
   prevButton.addEventListener("click", () => {
     if (!cards.length) return;
@@ -222,6 +229,12 @@ function wireEventListeners() {
       preserveCurrentCardId: getCurrentCardId(),
       quiet: true,
     });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && syncDrawer.classList.contains("is-open")) {
+      closeSyncPanel();
+    }
   });
 }
 
@@ -522,8 +535,32 @@ function setSyncState(mode, message) {
 
   syncBadge.dataset.mode = mode;
   syncMessage.textContent = message;
+  openSyncPanelButton.textContent =
+    mode === "synced"
+      ? "Cloud Synced"
+      : mode === "ready"
+        ? "Cloud Ready"
+        : mode === "error"
+          ? "Sync Issue"
+          : "Cloud Sync";
   signOutButton.disabled = !isCloudActive();
   refreshButton.disabled = !isCloudActive();
+}
+
+function openSyncPanel() {
+  syncDrawer.classList.add("is-open");
+  syncDrawer.setAttribute("aria-hidden", "false");
+  openSyncPanelButton.setAttribute("aria-expanded", "true");
+  syncPanelBackdrop.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeSyncPanel() {
+  syncDrawer.classList.remove("is-open");
+  syncDrawer.setAttribute("aria-hidden", "true");
+  openSyncPanelButton.setAttribute("aria-expanded", "false");
+  syncPanelBackdrop.hidden = true;
+  document.body.style.overflow = "";
 }
 
 function loadLocalCards() {
