@@ -49,7 +49,6 @@ const syncBadge = document.querySelector("#sync-badge");
 const syncMessage = document.querySelector("#sync-message");
 const prevButton = document.querySelector("#prev-card");
 const nextButton = document.querySelector("#next-card");
-const flipButton = document.querySelector("#flip-card");
 const deleteButton = document.querySelector("#delete-card");
 const editButton = document.querySelector("#edit-card");
 const cardForm = document.querySelector("#card-form");
@@ -81,7 +80,6 @@ initializeApp();
 
 function wireEventListeners() {
   flashcard.addEventListener("click", flipCard);
-  flipButton.addEventListener("click", flipCard);
   openZoomButton.addEventListener("click", openZoomModal);
   closeZoomButton.addEventListener("click", closeZoomModal);
   zoomFlashcard.addEventListener("click", flipZoomCard);
@@ -715,7 +713,6 @@ function renderTopics() {
 function setDisabledState(isDisabled) {
   prevButton.disabled = isDisabled;
   nextButton.disabled = isDisabled;
-  flipButton.disabled = isDisabled;
   deleteButton.disabled = isDisabled;
   editButton.disabled = isDisabled;
   openZoomButton.disabled = isDisabled;
