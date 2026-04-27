@@ -233,15 +233,20 @@ body::after {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1.2rem;
+  gap: 1rem;
   min-height: 100%;
   width: 100%;
 }
 
-.card-face.has-media .card-copy {
-  padding-right: clamp(6rem, 24%, 10rem);
-  padding-bottom: clamp(5rem, 18%, 7rem);
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1.15rem;
+  min-height: 0;
+  width: 100%;
 }
 
 .card-front {
@@ -289,13 +294,14 @@ body::after {
 }
 
 .card-text {
-  margin: auto 0;
+  margin: 0;
   font-size: clamp(1.5rem, 4vw, 2.3rem);
   line-height: 1.2;
   position: relative;
   z-index: 2;
   overflow-wrap: anywhere;
   hyphens: auto;
+  text-align: center;
   text-wrap: balance;
 }
 
@@ -320,17 +326,17 @@ body::after {
 }
 
 .card-media-frame {
-  position: absolute;
-  right: 1.35rem;
-  bottom: 1.35rem;
-  z-index: 1;
-  width: clamp(88px, 22%, 150px);
-  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 290px);
+  max-height: 42%;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.86);
   box-shadow: 0 16px 38px rgba(36, 33, 40, 0.16);
+  padding: 0.75rem;
 }
 
 .card-back .card-media-frame {
@@ -341,8 +347,10 @@ body::after {
 .card-media {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .actions {
@@ -481,14 +489,10 @@ textarea {
   margin-top: 1rem;
 }
 
-.flashcard-zoom .card-face.has-media .card-copy {
-  padding-right: clamp(8rem, 26%, 14rem);
-  padding-bottom: clamp(6rem, 18%, 8rem);
-}
-
 .flashcard-zoom .card-media-frame {
-  width: clamp(128px, 26%, 220px);
-  border-radius: 24px;
+  width: min(100%, 420px);
+  max-height: 46%;
+  border-radius: 26px;
 }
 
 .zoom-card-text {
@@ -599,6 +603,15 @@ textarea {
   cursor: pointer;
 }
 
+.card-form select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+}
+
 .card-form input:not(.file-input) {
   width: 100%;
   border: 1px solid var(--line);
@@ -610,6 +623,7 @@ textarea {
 
 .topic-select:focus,
 .file-input:focus,
+.card-form select:focus,
 .card-form input:focus,
 .card-form textarea:focus {
   outline: 2px solid rgba(180, 79, 45, 0.22);
@@ -659,12 +673,6 @@ textarea {
 
   .flashcard-zoom {
     min-height: min(72vh, 620px);
-  }
-
-  .card-face.has-media .card-copy,
-  .flashcard-zoom .card-face.has-media .card-copy {
-    padding-right: clamp(5rem, 24%, 8rem);
-    padding-bottom: clamp(4.5rem, 18%, 6.5rem);
   }
 
   .hero-top {
@@ -720,15 +728,8 @@ textarea {
     padding: 0.6rem 0.9rem;
   }
 
-  .card-media-frame {
-    right: 0.95rem;
-    bottom: 0.95rem;
-    width: clamp(72px, 24%, 108px);
-    border-radius: 16px;
-  }
-
   .flashcard-zoom .card-media-frame {
-    width: clamp(96px, 28%, 144px);
+    width: min(100%, 280px);
     border-radius: 18px;
   }
 

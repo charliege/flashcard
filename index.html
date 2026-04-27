@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Flip</title>
-    <link rel="stylesheet" href="./style.css?v=8" />
+    <link rel="stylesheet" href="./style.css?v=9" />
   </head>
   <body>
     <div class="page-shell">
@@ -52,19 +52,23 @@
               <div class="card-face card-front">
                 <div class="card-copy">
                   <p class="face-label">Front</p>
-                  <p id="card-front-text" class="card-text"></p>
-                </div>
-                <div id="card-front-media-frame" class="card-media-frame" hidden>
-                  <img id="card-front-media" class="card-media" alt="" />
+                  <div class="card-body">
+                    <p id="card-front-text" class="card-text"></p>
+                    <div id="card-front-media-frame" class="card-media-frame" hidden>
+                      <img id="card-front-media" class="card-media" alt="" />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="card-face card-back">
                 <div class="card-copy">
                   <p class="face-label">Back</p>
-                  <p id="card-back-text" class="card-text"></p>
-                </div>
-                <div id="card-back-media-frame" class="card-media-frame" hidden>
-                  <img id="card-back-media" class="card-media" alt="" />
+                  <div class="card-body">
+                    <p id="card-back-text" class="card-text"></p>
+                    <div id="card-back-media-frame" class="card-media-frame" hidden>
+                      <img id="card-back-media" class="card-media" alt="" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </button>
@@ -141,6 +145,12 @@
               type="file"
               accept="image/*"
             />
+
+            <label for="image-side">Picture side</label>
+            <select id="image-side" name="image-side">
+              <option value="back" selected>Back</option>
+              <option value="front">Front</option>
+            </select>
 
             <div id="image-preview-shell" class="image-preview-shell" hidden>
               <img
@@ -274,19 +284,23 @@
           <div class="card-face card-front">
             <div class="card-copy">
               <p class="face-label">Front</p>
-              <p id="zoom-front-text" class="card-text zoom-card-text"></p>
-            </div>
-            <div id="zoom-front-media-frame" class="card-media-frame" hidden>
-              <img id="zoom-front-media" class="card-media" alt="" />
+              <div class="card-body">
+                <p id="zoom-front-text" class="card-text zoom-card-text"></p>
+                <div id="zoom-front-media-frame" class="card-media-frame" hidden>
+                  <img id="zoom-front-media" class="card-media" alt="" />
+                </div>
+              </div>
             </div>
           </div>
           <div class="card-face card-back">
             <div class="card-copy">
               <p class="face-label">Back</p>
-              <p id="zoom-back-text" class="card-text zoom-card-text"></p>
-            </div>
-            <div id="zoom-back-media-frame" class="card-media-frame" hidden>
-              <img id="zoom-back-media" class="card-media" alt="" />
+              <div class="card-body">
+                <p id="zoom-back-text" class="card-text zoom-card-text"></p>
+                <div id="zoom-back-media-frame" class="card-media-frame" hidden>
+                  <img id="zoom-back-media" class="card-media" alt="" />
+                </div>
+              </div>
             </div>
           </div>
         </button>
@@ -294,6 +308,6 @@
     </section>
 
     <script src="./config.js?v=2"></script>
-    <script type="module" src="./script.js?v=8"></script>
+    <script type="module" src="./script.js?v=9"></script>
   </body>
 </html>
